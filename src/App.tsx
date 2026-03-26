@@ -16,7 +16,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { BookOpen, ShieldCheck } from 'lucide-react';
 
 function AppRoutes() {
-  const { user, profile, loading, signIn } = useAuth();
+  const { user, profile, loading, signIn, error } = useAuth();
 
   if (loading) {
     return (
@@ -42,6 +42,21 @@ function AppRoutes() {
         </div>
 
         <div className="space-y-4 w-full max-w-sm">
+          {error && (
+            <div className="p-4 bg-rose-50 border-2 border-rose-100 rounded-2xl text-rose-600 text-sm font-bold mb-4">
+              <p>{error}</p>
+              {error.includes('unauthorized-domain') && (
+                <p className="mt-2 text-[10px] text-rose-400 uppercase tracking-widest">
+                  Tip: Make sure this domain is added to "Authorized Domains" in your Firebase Console.
+                </p>
+              )}
+              {error.includes('popup-blocked') && (
+                <p className="mt-2 text-[10px] text-rose-400 uppercase tracking-widest">
+                  Tip: Please allow popups for this site to sign in.
+                </p>
+              )}
+            </div>
+          )}
           <button
             onClick={signIn}
             className="w-full py-4 bg-primary-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary-200 hover:bg-primary-600 transition-all active:scale-95 flex items-center justify-center gap-3"
