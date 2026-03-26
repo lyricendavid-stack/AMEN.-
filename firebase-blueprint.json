@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and stats",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "streak": { "type": "integer" },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "totalXP": { "type": "integer" },
+        "level": { "type": "integer" },
+        "donationLink": { "type": "string" },
+        "role": { "type": "string" },
+        "theme": {
+          "type": "object",
+          "properties": {
+            "primaryColor": { "type": "string" },
+            "visibleTabs": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      "required": ["uid", "displayName", "email"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "A learning unit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "order": { "type": "integer" },
+        "xpReward": { "type": "integer" },
+        "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "visits": { "type": "integer" },
+        "likes": { "type": "integer" },
+        "averageRating": { "type": "number" },
+        "ratingCount": { "type": "integer" },
+        "isOfficial": { "type": "boolean" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "order"]
+    },
+    "Rating": {
+      "title": "Rating",
+      "description": "User rating for a lesson",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "lessonId": { "type": "string" },
+        "rating": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "lessonId", "rating"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "A quiz within a lesson",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "lessonId": { "type": "string" },
+        "question": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "correctAnswer": { "type": "string" },
+        "explanation": { "type": "string" }
+      },
+      "required": ["id", "lessonId", "question", "options", "correctAnswer"]
+    },
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "Tracks user progress on lessons",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "lessonId": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "score": { "type": "integer" },
+        "lastAttempt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "lessonId", "completed"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/lessons/{lessonId}": {
+      "schema": "Lesson",
+      "description": "Available lessons"
+    },
+    "/lessons/{lessonId}/quizzes/{quizId}": {
+      "schema": "Quiz",
+      "description": "Quizzes for a lesson"
+    },
+    "/progress/{progressId}": {
+      "schema": "UserProgress",
+      "description": "User lesson progress"
+    }
+  }
+}

@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (required)
+    //   - email: string (required)
+    //   - photoURL: string (optional)
+    //   - streak: int (optional)
+    //   - lastActive: string (optional)
+    //   - totalXP: int (optional)
+    //   - level: int (optional)
+    //
+    // Collection: lessons
+    // Document ID: {lessonId}
+    // Fields:
+    //   - id: string (required)
+    //   - title: string (required)
+    //   - description: string (optional)
+    //   - category: string (required)
+    //   - order: int (required)
+    //   - xpReward: int (optional)
+    //
+    // Collection: lessons/{lessonId}/quizzes
+    // Document ID: {quizId}
+    // Fields:
+    //   - id: string (required)
+    //   - lessonId: string (required)
+    //   - question: string (required)
+    //   - options: list (required)
+    //   - correctAnswer: string (required)
+    //   - explanation: string (optional)
+    //
+    // Collection: progress
+    // Document ID: {progressId}
+    // Fields:
+    //   - userId: string (required)
+    //   - lessonId: string (required)
+    //   - completed: bool (required)
+    //   - score: int (optional)
+    //   - lastAttempt: string (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.email == "lyricendavid@gmail.com" && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'co-owner'))
+      );
+    }
+
+    function isModerator() {
+      return isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator');
+    }
+
+    function isEditor() {
+      return isModerator() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'pastor' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'church'));
+    }
+
+    function isCreator() {
+      return isEditor() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'creator');
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email']) &&
+             data.uid is string && data.displayName is string && data.email is string;
+    }
+
+    function isValidProgress(data) {
+      return data.keys().hasAll(['userId', 'lessonId', 'completed']) &&
+             data.userId is string && data.lessonId is string && data.completed is bool;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    isValidUser(request.resource.data) &&
+                    (isAdmin() || !('role' in request.resource.data) || request.resource.data.role == resource.data.role);
+    }
+
+    match /lessons/{lessonId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                    (isCreator() || (request.resource.data.authorId == request.auth.uid && 
+                     request.resource.data.isOfficial == false));
+      allow update: if isCreator() || 
+                    (isAuthenticated() && resource.data.authorId == request.auth.uid && 
+                     request.resource.data.isOfficial == false) ||
+                    (isAuthenticated() && 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['visits', 'likes']));
+      allow delete: if isModerator() || 
+                    (isAuthenticated() && resource.data.authorId == request.auth.uid);
+
+      match /quizzes/{quizId} {
+        allow read: if isAuthenticated();
+        allow write: if isCreator() || 
+                      (isAuthenticated() && get(/databases/$(database)/documents/lessons/$(lessonId)).data.authorId == request.auth.uid);
+      }
+
+      match /ratings/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId) && 
+                      request.resource.data.rating is int && 
+                      request.resource.data.rating >= 1 && 
+                      request.resource.data.rating <= 5;
+      }
+    }
+
+    match /progress/{progressId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId && isValidProgress(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && isValidProgress(request.resource.data);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+  }
+}
